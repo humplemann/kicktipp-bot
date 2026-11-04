@@ -53,6 +53,11 @@ or deploy with Kubernetes.
 | `KICKTIPP_HOURS_UNTIL_GAME`    | The script will tip games which start in the next x hours            | `24`                                                              | No       |
 | `KICKTIPP_RUN_EVERY_X_MINUTES` | The script will run every x minutes                                  | `60`                                                              | No       |
 | `OVERWRITE_TIPS`               | If set to `true`, tips for already tipped games will be overwritten. | `false`                                                           | No       |
+| `KICKTIPP_TIP_STRATEGY`        | `ev` maximises expected Kicktipp points (Poisson model from quotes), `legacy` is the old quote-difference heuristic | `ev`                       | No       |
+| `KICKTIPP_POINTS_SCHEME`       | Points of your league for Tendenz, Tordifferenz, Ergebnis            | `2,3,4`                                                           | No       |
+| `KICKTIPP_QUOTENPUNKTE`        | `auto` reads the league's current points per tendency ("1 - 2 - 4") from the table if present, `true` requires them, `false` ignores them | `auto` | No       |
+| `KICKTIPP_DRAW_DIFFERENCE_BONUS` | `false` if your rule table shows "-" for Tordifferenz at Unentschieden | `true`                                                          | No       |
+| `KICKTIPP_GROUP_SIZE`          | Number of active tippers; lets the bot account for its own tip lowering the Quotenpunkte | (unset)                                      | No       |
 | `CHROMEDRIVER_PATH`            | The path to the chromedriver binary                                  | `/usr/bin/chromedriver`                                           | No       |
 | `ZAPIER_URL`                   | The URL of your Zapier Webhook                                       | `https://hooks.zapier.com/hooks/catch/123456/abcdef/`             | No       |
 | `NTFY_URL`                     | The URL of your NTFY Webhook                                         | `https://ntfy.your-domain.com`                                    | No       |
