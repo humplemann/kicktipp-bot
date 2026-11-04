@@ -1,6 +1,7 @@
 name: Push to Main
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -44,4 +45,4 @@ jobs:
         file: docker/Dockerfile
         push: ${{ github.event.repository.full_name == github.repository }}
         platforms: linux/amd64
-        tags: ghcr.io/antonengelhardt/kicktipp-bot:amd64
+        tags: ghcr.io/${{ github.repository }}:amd64
