@@ -281,6 +281,12 @@ class GameTipper:
                 f"Calculated tip ({Config.TIP_STRATEGY}): {tip[0]} - {tip[1]} "
                 f"(expected points: {expected:.2f})")
 
+            # With OVERWRITE_TIPS an existing identical tip is left alone, so
+            # frequent re-runs neither resubmit nor re-notify unchanged tips.
+            if self._has_same_tip(home_tip_field, away_tip_field, tip):
+                logger.info(f"Existing tip {tip[0]} - {tip[1]} unchanged. Skipping...")
+                return False
+
             # Enter tip and send notifications
             if self._enter_tip(home_tip_field, away_tip_field, tip):
                 try:
@@ -306,6 +312,15 @@ class GameTipper:
         away_value = SeleniumUtils.safe_get_attribute(
             away_field, 'value', 'away tip field') or ''
         return bool(home_value and away_value)
+
+    @staticmethod
+    def _has_same_tip(home_field, away_field, tip: tuple) -> bool:
+        """Check if the tip fields already contain exactly this tip."""
+        home_value = (SeleniumUtils.safe_get_attribute(
+            home_field, 'value', 'home tip field') or '').strip()
+        away_value = (SeleniumUtils.safe_get_attribute(
+            away_field, 'value', 'away tip field') or '').strip()
+        return home_value == str(tip[0]) and away_value == str(tip[1])
 
     def _should_tip_game(self, game_time: datetime) -> bool:
         """Check if the game should be tipped based on timing."""
