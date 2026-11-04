@@ -54,7 +54,9 @@ class Game:
         away_quote: Optional[float] = None,
         allow_draw: bool = True,
         strategy: str = "ev",
-        points_scheme: Sequence[int] = (2, 3, 4)
+        points_scheme: Sequence[int] = (2, 3, 4),
+        draw_difference_bonus: bool = True,
+        group_size: Optional[int] = None
     ) -> Tuple[int, int]:
         """
         Calculate betting tip based on the quotes.
@@ -71,7 +73,9 @@ class Game:
             Tuple of (home_goals, away_goals) prediction
         """
         if strategy == "ev":
-            return self.calculate_ev_tip(allow_draw=allow_draw, points_scheme=points_scheme)
+            return self.calculate_ev_tip(
+                allow_draw=allow_draw, points_scheme=points_scheme,
+                draw_difference_bonus=draw_difference_bonus, group_size=group_size)
 
         home_quote, away_quote = self._get_effective_win_quotes(
             home_quote, away_quote)
@@ -85,25 +89,33 @@ class Game:
     def calculate_ev_tip(
         self,
         allow_draw: bool = True,
-        points_scheme: Sequence[int] = (2, 3, 4)
+        points_scheme: Sequence[int] = (2, 3, 4),
+        draw_difference_bonus: bool = True,
+        group_size: Optional[int] = None
     ) -> Tuple[int, int]:
         """Tip that maximises the expected Kicktipp points under a Poisson model."""
         tip, _ = tip_strategy.best_tip(
             self._validated_quotes, scheme=points_scheme, allow_draw=allow_draw,
-            tendency_points=self.tendency_points)
+            tendency_points=self.tendency_points,
+            draw_difference_bonus=draw_difference_bonus, group_size=group_size)
         return tip
 
     def expected_points(
         self,
         tip: Tuple[int, int],
-        points_scheme: Sequence[int] = (2, 3, 4)
+        points_scheme: Sequence[int] = (2, 3, 4),
+        draw_difference_bonus: bool = True,
+        group_size: Optional[int] = None
     ) -> float:
         """Expected Kicktipp points of an arbitrary tip for this game."""
         p_home, p_draw, _ = tip_strategy.implied_probabilities(self._validated_quotes)
         lam_home, lam_away = tip_strategy.fit_expected_goals(round(p_home, 4), round(p_draw, 4))
         matrix = tip_strategy.score_matrix(lam_home, lam_away)
-        return sum(p * tip_strategy.kicktipp_points(tip, result, points_scheme, self.tendency_points)
-                   for result, p in matrix.items())
+        table = tip_strategy.expected_points_table(
+            matrix, points_scheme, allow_draw=True, max_tip_goals=max(tip),
+            tendency_points=self.tendency_points,
+            draw_difference_bonus=draw_difference_bonus, group_size=group_size)
+        return table[tip]
 
     def resolve_draw_tip(
         self,

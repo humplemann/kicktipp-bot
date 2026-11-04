@@ -13,6 +13,7 @@ Everything is pure Python (no numpy/scipy) so the bot image stays small.
 """
 
 import math
+import re
 from functools import lru_cache
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -98,27 +99,71 @@ def kicktipp_points(
     result: Score,
     scheme: Sequence[int],
     tendency_points: Optional[Sequence[float]] = None,
+    draw_difference_bonus: bool = True,
 ) -> float:
     """Points for `tip` given `result`.
 
     scheme = (Tendenz, Tordifferenz, Ergebnis) as fixed points, e.g. (2, 3, 4).
-    tendency_points = optional per-outcome points for the correct tendency in
-    the order 1 / X / 2 (Kicktipp "Quotenpunkte": the values are the Tipp- or
-    Buchmacher-Quoten and change until kickoff). When given, the fixed Tendenz
-    value is replaced by the outcome's quote and the bonuses for Tordifferenz
-    and Ergebnis are the differences of the fixed scheme (e.g. +1 / +2 for
-    2/3/4), which is how Kicktipp adds them on top of the quote.
+    tendency_points = optional Kicktipp "Quotenpunkte" per outcome in the
+    order 1 / X / 2 (shown as "Heim-Remis-Gast" on the tipping page; computed
+    from the league's tips and changing until kickoff). They are ADDED to the
+    fixed scheme: with 2/3/4 and points 1-2-4 a correct away tendency earns
+    4+2, the right difference 4+3 and the exact result 4+4 ("3 - 8 Punkte").
+    draw_difference_bonus = False for leagues whose rule table shows "-" for
+    Tordifferenz at Unentschieden: a draw tip with another draw as result then
+    earns only the tendency points.
     """
     tendency, difference, exact = scheme
     if tendency_of(tip) != tendency_of(result):
         return 0.0
-    base = tendency_points[tendency_of(result)] if tendency_points else tendency
+    extra = tendency_points[tendency_of(result)] if tendency_points else 0.0
     if tip == result:
-        return base + (exact - tendency)
+        return extra + exact
     if tip[0] - tip[1] == result[0] - result[1]:
-        # Also covers "draw tipped, other draw happened".
-        return base + (difference - tendency)
-    return base
+        # Also covers "draw tipped, other draw happened" (unless disabled).
+        if tip[0] == tip[1] and not draw_difference_bonus:
+            return extra + tendency
+        return extra + difference
+    return extra + tendency
+
+
+def quotenpunkte(share: float, minimum: int = 1, maximum: int = 4) -> int:
+    """Kicktipp Quotenpunkte for a tendency tipped by `share` of the league.
+
+    Kicktipp: Punkte = MAX / (10 * T/N) - MAX/10 + MIN, rounded, clamped.
+    """
+    if share <= 0:
+        return maximum
+    raw = maximum / (10.0 * share) - maximum / 10.0 + minimum
+    return int(min(maximum, max(minimum, round(raw))))
+
+
+def adjust_for_own_tip(
+    tendency_points: Sequence[float],
+    outcome: int,
+    group_size: int,
+    minimum: int = 1,
+    maximum: int = 4,
+    already_tipped: bool = False,
+) -> List[float]:
+    """Estimate the Quotenpunkte after our own tip on `outcome` is counted.
+
+    The page only shows the rounded points, so the current tip counts are
+    estimated from them: share ~= MAX / (10 * (points - MIN + MAX/10)).
+    Returns a new list; outcomes we do not tip are left unchanged (a slightly
+    optimistic simplification: N grows by one for them, too).
+    """
+    pts = list(tendency_points)
+    q = pts[outcome]
+    if q <= minimum:
+        return pts  # already at the floor, can only stay there
+    share = maximum / (10.0 * (q - minimum + maximum / 10.0))
+    share = min(1.0, max(1.0 / max(group_size, 1), share))
+    tips_on_outcome = max(1, round(share * group_size))
+    total = group_size if already_tipped else group_size + 1
+    own = 0 if already_tipped else 1
+    pts[outcome] = quotenpunkte((tips_on_outcome + own) / total, minimum, maximum)
+    return pts
 
 
 def expected_points_table(
@@ -127,6 +172,8 @@ def expected_points_table(
     allow_draw: bool = True,
     max_tip_goals: int = MAX_TIP_GOALS,
     tendency_points: Optional[Sequence[float]] = None,
+    draw_difference_bonus: bool = True,
+    group_size: Optional[int] = None,
 ) -> Dict[Score, float]:
     """Expected points for every candidate tip."""
     candidates = [
@@ -135,11 +182,15 @@ def expected_points_table(
         for a in range(max_tip_goals + 1)
         if allow_draw or h != a
     ]
-    return {
-        tip: sum(p * kicktipp_points(tip, result, scheme, tendency_points)
-                 for result, p in matrix.items())
-        for tip in candidates
-    }
+    table: Dict[Score, float] = {}
+    for tip in candidates:
+        points = tendency_points
+        if tendency_points and group_size:
+            points = adjust_for_own_tip(tendency_points, tendency_of(tip), group_size)
+        table[tip] = sum(
+            p * kicktipp_points(tip, result, scheme, points, draw_difference_bonus)
+            for result, p in matrix.items())
+    return table
 
 
 def best_tip(
@@ -148,6 +199,8 @@ def best_tip(
     allow_draw: bool = True,
     rho: float = DEFAULT_RHO,
     tendency_points: Optional[Sequence[float]] = None,
+    draw_difference_bonus: bool = True,
+    group_size: Optional[int] = None,
 ) -> Tuple[Score, float]:
     """Return the tip with the highest expected Kicktipp points and that value.
 
@@ -158,10 +211,25 @@ def best_tip(
     p_home, p_draw, _ = implied_probabilities(quotes)
     lam_home, lam_away = fit_expected_goals(round(p_home, 4), round(p_draw, 4), rho)
     matrix = score_matrix(lam_home, lam_away, rho)
-    table = expected_points_table(matrix, scheme, allow_draw, tendency_points=tendency_points)
+    table = expected_points_table(
+        matrix, scheme, allow_draw, tendency_points=tendency_points,
+        draw_difference_bonus=draw_difference_bonus, group_size=group_size)
     # Deterministic tie-break: prefer lower total goals, then home goals.
     tip = max(table, key=lambda t: (table[t], -(t[0] + t[1]), -t[0]))
     return tip, table[tip]
+
+
+TENDENCY_POINTS_PATTERN = re.compile(r"^\s*(\d+)\s*-\s*(\d+)\s*-\s*(\d+)\s*$")
+
+
+def parse_tendency_points(text: Optional[str]) -> Optional[List[float]]:
+    """Parse Kicktipp's Quotenpunkte cell, e.g. '1 - 2 - 4' (Heim-Remis-Gast)."""
+    if not text:
+        return None
+    match = TENDENCY_POINTS_PATTERN.match(text)
+    if not match:
+        return None
+    return [float(match.group(i)) for i in (1, 2, 3)]
 
 
 def parse_points_scheme(raw: Optional[str], default: Sequence[int] = (2, 3, 4)) -> Tuple[int, int, int]:

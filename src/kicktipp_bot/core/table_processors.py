@@ -11,6 +11,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.common.exceptions import WebDriverException
 
 from ..utils.selenium_utils import SeleniumUtils
+from ..models import tip_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +232,24 @@ class GameDataExtractor:
                 f"Detected game section marker via fallback text: '{fallback_section}'")
             return fallback_section
 
+        return None
+
+    @staticmethod
+    def extract_tendency_points(game_row) -> Optional[list]:
+        """
+        Extract the current Quotenpunkte (points per tendency, Heim-Remis-Gast)
+        shown as e.g. "1 - 2 - 4" in leagues with the Kicktipp quote rule.
+
+        Returns [home, draw, away] as floats, or None if the league uses
+        fixed points (no such cell exists).
+        """
+        cells = SeleniumUtils.safe_find_elements(game_row, By.XPATH, './td')
+        for cell in cells:
+            text = SeleniumUtils.safe_get_text(cell, 'tendency points cell')
+            points = tip_strategy.parse_tendency_points(text)
+            if points:
+                logger.debug(f"Found Quotenpunkte: {points}")
+                return points
         return None
 
     @staticmethod

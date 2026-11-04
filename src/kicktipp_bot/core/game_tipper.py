@@ -249,19 +249,36 @@ class GameTipper:
 
             logger.debug(f"Quotes: {quotes}")
 
+            # Quotenpunkte leagues: current points per tendency (Heim-Remis-Gast)
+            tendency_points = None
+            if Config.QUOTENPUNKTE != "false":
+                tendency_points = GameDataExtractor.extract_tendency_points(data_row)
+                if tendency_points:
+                    logger.info(f"Quotenpunkte (1/X/2): {tendency_points}")
+                elif Config.QUOTENPUNKTE == "true":
+                    logger.warning(
+                        f"Could not extract Quotenpunkte for game {game_number} "
+                        "but KICKTIPP_QUOTENPUNKTE=true; skipping")
+                    return False
+
             # Create game and calculate tip
-            game = Game(home_team, away_team, quotes, game_time)
+            game = Game(home_team, away_team, quotes, game_time,
+                        tendency_points=tendency_points)
             section = GameDataExtractor.extract_game_section(data_row)
             allow_draw = not GameDataExtractor.section_disallows_draw(
                 section)
             tip = game.calculate_tip(
                 allow_draw=allow_draw,
                 strategy=Config.TIP_STRATEGY,
-                points_scheme=Config.POINTS_SCHEME)
+                points_scheme=Config.POINTS_SCHEME,
+                draw_difference_bonus=Config.DRAW_DIFFERENCE_BONUS,
+                group_size=Config.GROUP_SIZE)
 
+            expected = game.expected_points(
+                tip, Config.POINTS_SCHEME, Config.DRAW_DIFFERENCE_BONUS, Config.GROUP_SIZE)
             logger.info(
                 f"Calculated tip ({Config.TIP_STRATEGY}): {tip[0]} - {tip[1]} "
-                f"(expected points: {game.expected_points(tip, Config.POINTS_SCHEME):.2f})")
+                f"(expected points: {expected:.2f})")
 
             # Enter tip and send notifications
             if self._enter_tip(home_tip_field, away_tip_field, tip):

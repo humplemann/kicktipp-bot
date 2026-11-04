@@ -29,6 +29,19 @@ class Config:
     POINTS_SCHEME: tuple = tuple(
         int(x) for x in os.getenv("KICKTIPP_POINTS_SCHEME", "2,3,4").split(","))
 
+    # Quotenpunkte leagues: "auto" reads the current points per tendency
+    # (Heim-Remis-Gast, e.g. "1 - 2 - 4") from the tipping table when present,
+    # "true" requires them, "false" ignores them.
+    QUOTENPUNKTE: str = os.getenv("KICKTIPP_QUOTENPUNKTE", "auto").lower()
+    # Does a draw tip earn Tordifferenz points for another draw? Rule tables
+    # that show "-" in the Unentschieden/Tordifferenz cell mean "false".
+    DRAW_DIFFERENCE_BONUS: bool = os.getenv(
+        "KICKTIPP_DRAW_DIFFERENCE_BONUS", "true").lower() == "true"
+    # Number of active tippers in the league (optional). When set, the bot
+    # accounts for its own tip lowering the Quotenpunkte of that tendency.
+    GROUP_SIZE: Optional[int] = (
+        int(os.getenv("KICKTIPP_GROUP_SIZE")) if os.getenv("KICKTIPP_GROUP_SIZE") else None)
+
     # Chrome driver path
     CHROMEDRIVER_PATH: Optional[str] = os.getenv("CHROMEDRIVER_PATH")
 

@@ -47,11 +47,11 @@ class QuotenpunkteTest(unittest.TestCase):
     def test_tendency_points_replace_fixed_value(self):
         pts = tip_strategy.kicktipp_points
         q = (1.4, 3.1, 4.9)
-        self.assertEqual(pts((1, 0), (2, 0), (2, 3, 4), q), 1.4)        # tendency
-        self.assertEqual(pts((1, 0), (2, 1), (2, 3, 4), q), 1.4 + 1)    # difference bonus
-        self.assertEqual(pts((1, 0), (1, 0), (2, 3, 4), q), 1.4 + 2)    # exact bonus
-        self.assertEqual(pts((0, 1), (0, 2), (2, 3, 4), q), 4.9)
-        self.assertEqual(pts((1, 1), (0, 0), (2, 3, 4), q), 3.1 + 1)
+        self.assertEqual(pts((1, 0), (2, 0), (2, 3, 4), q), 1.4 + 2)    # tendency
+        self.assertEqual(pts((1, 0), (2, 1), (2, 3, 4), q), 1.4 + 3)    # difference
+        self.assertEqual(pts((1, 0), (1, 0), (2, 3, 4), q), 1.4 + 4)    # exact
+        self.assertEqual(pts((0, 1), (0, 2), (2, 3, 4), q), 4.9 + 2)
+        self.assertEqual(pts((1, 1), (0, 0), (2, 3, 4), q), 3.1 + 3)
         self.assertEqual(pts((1, 0), (0, 1), (2, 3, 4), q), 0)
 
     def test_underdog_becomes_best_tip_when_crowd_overtips_favourite(self):
@@ -130,3 +130,49 @@ class GameIntegrationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GutkickRulesTest(unittest.TestCase):
+    """Rules of a real Quotenpunkte league: 1-4 points per tendency + 2/3/4, no draw difference step."""
+
+    SCHEME = (2, 3, 4)
+
+    def test_parse_tendency_points_cell(self):
+        self.assertEqual(tip_strategy.parse_tendency_points("1 - 2 - 4"), [1.0, 2.0, 4.0])
+        self.assertEqual(tip_strategy.parse_tendency_points(" 4-1-4 "), [4.0, 1.0, 4.0])
+        self.assertIsNone(tip_strategy.parse_tendency_points("06.11.26 20:30"))
+        self.assertIsNone(tip_strategy.parse_tendency_points("Hamburger SV"))
+        self.assertIsNone(tip_strategy.parse_tendency_points(None))
+
+    def test_quotenpunkte_formula(self):
+        # Kicktipp example: N=25, T=5 -> 2.6 -> 3
+        self.assertEqual(tip_strategy.quotenpunkte(5 / 25), 3)
+        self.assertEqual(tip_strategy.quotenpunkte(1.0), 1)
+        self.assertEqual(tip_strategy.quotenpunkte(0.05), 4)
+
+    def test_draw_difference_bonus_can_be_disabled(self):
+        pts = tip_strategy.kicktipp_points
+        q = [1.0, 2.0, 4.0]
+        self.assertEqual(pts((1, 1), (0, 0), self.SCHEME, q, draw_difference_bonus=False), 2 + 2)
+        self.assertEqual(pts((1, 1), (0, 0), self.SCHEME, q, draw_difference_bonus=True), 2 + 3)
+        self.assertEqual(pts((1, 1), (1, 1), self.SCHEME, q, draw_difference_bonus=False), 2 + 4)
+        self.assertEqual(pts((2, 1), (3, 2), self.SCHEME, q, draw_difference_bonus=False), 1 + 3)
+        self.assertEqual(pts((0, 1), (0, 1), self.SCHEME, q, draw_difference_bonus=False), 4 + 4)
+        self.assertEqual(pts((2, 0), (1, 0), self.SCHEME, q, draw_difference_bonus=False), 1 + 2)
+
+    def test_real_row_hsv_gladbach_flips_to_away(self):
+        # Bookmaker 2.37 / 3.70 / 2.70, league points 1 - 2 - 4
+        quotes = [2.37, 3.70, 2.70]
+        fixed, _ = tip_strategy.best_tip(quotes, self.SCHEME)
+        self.assertGreater(fixed[0], fixed[1])
+        tip, ev = tip_strategy.best_tip(
+            quotes, self.SCHEME, tendency_points=[1, 2, 4], draw_difference_bonus=False)
+        self.assertLess(tip[0], tip[1])
+        self.assertGreater(ev, 2.0)
+
+    def test_own_tip_lowers_points_in_small_league(self):
+        adjusted = tip_strategy.adjust_for_own_tip([1, 2, 4], outcome=2, group_size=10)
+        self.assertLess(adjusted[2], 4)
+        self.assertEqual(adjusted[0], 1)
+        unchanged = tip_strategy.adjust_for_own_tip([1, 2, 4], outcome=0, group_size=10)
+        self.assertEqual(unchanged, [1, 2, 4])
