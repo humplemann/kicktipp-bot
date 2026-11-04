@@ -87,19 +87,38 @@ def fit_expected_goals(p_home: float, p_draw: float, rho: float = DEFAULT_RHO) -
     return best
 
 
-def kicktipp_points(tip: Score, result: Score, scheme: Sequence[int]) -> int:
-    """Points for `tip` given `result` under a (Tendenz, Differenz, Ergebnis) scheme."""
+def tendency_of(score: Score) -> int:
+    """0 = home win, 1 = draw, 2 = away win (the 1 / X / 2 order)."""
+    h, a = score
+    return 0 if h > a else (1 if h == a else 2)
+
+
+def kicktipp_points(
+    tip: Score,
+    result: Score,
+    scheme: Sequence[int],
+    tendency_points: Optional[Sequence[float]] = None,
+) -> float:
+    """Points for `tip` given `result`.
+
+    scheme = (Tendenz, Tordifferenz, Ergebnis) as fixed points, e.g. (2, 3, 4).
+    tendency_points = optional per-outcome points for the correct tendency in
+    the order 1 / X / 2 (Kicktipp "Quotenpunkte": the values are the Tipp- or
+    Buchmacher-Quoten and change until kickoff). When given, the fixed Tendenz
+    value is replaced by the outcome's quote and the bonuses for Tordifferenz
+    and Ergebnis are the differences of the fixed scheme (e.g. +1 / +2 for
+    2/3/4), which is how Kicktipp adds them on top of the quote.
+    """
     tendency, difference, exact = scheme
-    th, ta = tip
-    rh, ra = result
-    if (th, ta) == (rh, ra):
-        return exact
-    if th - ta == rh - ra:
+    if tendency_of(tip) != tendency_of(result):
+        return 0.0
+    base = tendency_points[tendency_of(result)] if tendency_points else tendency
+    if tip == result:
+        return base + (exact - tendency)
+    if tip[0] - tip[1] == result[0] - result[1]:
         # Also covers "draw tipped, other draw happened".
-        return difference
-    if (th > ta) == (rh > ra) and (th == ta) == (rh == ra):
-        return tendency
-    return 0
+        return base + (difference - tendency)
+    return base
 
 
 def expected_points_table(
@@ -107,6 +126,7 @@ def expected_points_table(
     scheme: Sequence[int],
     allow_draw: bool = True,
     max_tip_goals: int = MAX_TIP_GOALS,
+    tendency_points: Optional[Sequence[float]] = None,
 ) -> Dict[Score, float]:
     """Expected points for every candidate tip."""
     candidates = [
@@ -116,7 +136,8 @@ def expected_points_table(
         if allow_draw or h != a
     ]
     return {
-        tip: sum(p * kicktipp_points(tip, result, scheme) for result, p in matrix.items())
+        tip: sum(p * kicktipp_points(tip, result, scheme, tendency_points)
+                 for result, p in matrix.items())
         for tip in candidates
     }
 
@@ -126,12 +147,18 @@ def best_tip(
     scheme: Sequence[int] = (2, 3, 4),
     allow_draw: bool = True,
     rho: float = DEFAULT_RHO,
+    tendency_points: Optional[Sequence[float]] = None,
 ) -> Tuple[Score, float]:
-    """Return the tip with the highest expected Kicktipp points and that value."""
+    """Return the tip with the highest expected Kicktipp points and that value.
+
+    `quotes` are always the bookmaker quotes (they define the probabilities).
+    `tendency_points` are the league's current points per outcome when the
+    league uses Quotenpunkte; they only change the payoff, never the odds.
+    """
     p_home, p_draw, _ = implied_probabilities(quotes)
     lam_home, lam_away = fit_expected_goals(round(p_home, 4), round(p_draw, 4), rho)
     matrix = score_matrix(lam_home, lam_away, rho)
-    table = expected_points_table(matrix, scheme, allow_draw)
+    table = expected_points_table(matrix, scheme, allow_draw, tendency_points=tendency_points)
     # Deterministic tie-break: prefer lower total goals, then home goals.
     tip = max(table, key=lambda t: (table[t], -(t[0] + t[1]), -t[0]))
     return tip, table[tip]

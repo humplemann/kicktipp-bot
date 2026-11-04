@@ -41,6 +41,28 @@ class KicktippPointsTest(unittest.TestCase):
         self.assertEqual(tip_strategy.kicktipp_points((1, 0), (2, 0), (1, 2, 3)), 1)
 
 
+class QuotenpunkteTest(unittest.TestCase):
+    """Kicktipp 'Quotenpunkte': points for the tendency come from the quotes."""
+
+    def test_tendency_points_replace_fixed_value(self):
+        pts = tip_strategy.kicktipp_points
+        q = (1.4, 3.1, 4.9)
+        self.assertEqual(pts((1, 0), (2, 0), (2, 3, 4), q), 1.4)        # tendency
+        self.assertEqual(pts((1, 0), (2, 1), (2, 3, 4), q), 1.4 + 1)    # difference bonus
+        self.assertEqual(pts((1, 0), (1, 0), (2, 3, 4), q), 1.4 + 2)    # exact bonus
+        self.assertEqual(pts((0, 1), (0, 2), (2, 3, 4), q), 4.9)
+        self.assertEqual(pts((1, 1), (0, 0), (2, 3, 4), q), 3.1 + 1)
+        self.assertEqual(pts((1, 0), (0, 1), (2, 3, 4), q), 0)
+
+    def test_underdog_becomes_best_tip_when_crowd_overtips_favourite(self):
+        quotes = [1.85, 3.6, 4.0]                     # bookmaker: home favourite
+        fav, _ = tip_strategy.best_tip(quotes)
+        self.assertGreater(fav[0], fav[1])
+        crowd = [1.2, 4.0, 9.0]                       # nearly everyone tipped home
+        tip, _ = tip_strategy.best_tip(quotes, tendency_points=crowd)
+        self.assertLess(tip[0], tip[1])
+
+
 class ModelTest(unittest.TestCase):
     def test_implied_probabilities_sum_to_one(self):
         p = tip_strategy.implied_probabilities([1.5, 4.2, 5.5])

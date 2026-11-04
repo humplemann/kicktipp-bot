@@ -16,6 +16,8 @@ class Game:
     away_team: str
     quotes: List[str]
     game_time: datetime
+    # Current points per outcome (1 / X / 2) in a Quotenpunkte league, if known.
+    tendency_points: Optional[List[float]] = None
     _validated_quotes: List[float] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
@@ -87,7 +89,8 @@ class Game:
     ) -> Tuple[int, int]:
         """Tip that maximises the expected Kicktipp points under a Poisson model."""
         tip, _ = tip_strategy.best_tip(
-            self._validated_quotes, scheme=points_scheme, allow_draw=allow_draw)
+            self._validated_quotes, scheme=points_scheme, allow_draw=allow_draw,
+            tendency_points=self.tendency_points)
         return tip
 
     def expected_points(
@@ -99,7 +102,7 @@ class Game:
         p_home, p_draw, _ = tip_strategy.implied_probabilities(self._validated_quotes)
         lam_home, lam_away = tip_strategy.fit_expected_goals(round(p_home, 4), round(p_draw, 4))
         matrix = tip_strategy.score_matrix(lam_home, lam_away)
-        return sum(p * tip_strategy.kicktipp_points(tip, result, points_scheme)
+        return sum(p * tip_strategy.kicktipp_points(tip, result, points_scheme, self.tendency_points)
                    for result, p in matrix.items())
 
     def resolve_draw_tip(
