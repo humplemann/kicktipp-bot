@@ -272,7 +272,8 @@ class GameTipper:
                 strategy=Config.TIP_STRATEGY,
                 points_scheme=Config.POINTS_SCHEME,
                 draw_difference_bonus=Config.DRAW_DIFFERENCE_BONUS,
-                group_size=Config.GROUP_SIZE)
+                group_size=Config.GROUP_SIZE,
+                underdog_margin=Config.UNDERDOG_MARGIN)
 
             expected = game.expected_points(
                 tip, Config.POINTS_SCHEME, Config.DRAW_DIFFERENCE_BONUS, Config.GROUP_SIZE)

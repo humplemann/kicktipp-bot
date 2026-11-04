@@ -56,7 +56,8 @@ class Game:
         strategy: str = "ev",
         points_scheme: Sequence[int] = (2, 3, 4),
         draw_difference_bonus: bool = True,
-        group_size: Optional[int] = None
+        group_size: Optional[int] = None,
+        underdog_margin: float = 0.0
     ) -> Tuple[int, int]:
         """
         Calculate betting tip based on the quotes.
@@ -75,7 +76,8 @@ class Game:
         if strategy == "ev":
             return self.calculate_ev_tip(
                 allow_draw=allow_draw, points_scheme=points_scheme,
-                draw_difference_bonus=draw_difference_bonus, group_size=group_size)
+                draw_difference_bonus=draw_difference_bonus, group_size=group_size,
+                underdog_margin=underdog_margin)
 
         home_quote, away_quote = self._get_effective_win_quotes(
             home_quote, away_quote)
@@ -91,13 +93,15 @@ class Game:
         allow_draw: bool = True,
         points_scheme: Sequence[int] = (2, 3, 4),
         draw_difference_bonus: bool = True,
-        group_size: Optional[int] = None
+        group_size: Optional[int] = None,
+        underdog_margin: float = 0.0
     ) -> Tuple[int, int]:
         """Tip that maximises the expected Kicktipp points under a Poisson model."""
         tip, _ = tip_strategy.best_tip(
             self._validated_quotes, scheme=points_scheme, allow_draw=allow_draw,
             tendency_points=self.tendency_points,
-            draw_difference_bonus=draw_difference_bonus, group_size=group_size)
+            draw_difference_bonus=draw_difference_bonus, group_size=group_size,
+            underdog_margin=underdog_margin)
         return tip
 
     def expected_points(

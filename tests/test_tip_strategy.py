@@ -170,6 +170,20 @@ class GutkickRulesTest(unittest.TestCase):
         self.assertLess(tip[0], tip[1])
         self.assertGreater(ev, 2.0)
 
+    def test_underdog_margin_keeps_favourite_on_close_calls(self):
+        quotes = [2.37, 3.70, 2.70]
+        pure, ev_pure = tip_strategy.best_tip(
+            quotes, self.SCHEME, tendency_points=[1, 2, 4], draw_difference_bonus=False)
+        self.assertLess(pure[0], pure[1])
+        strict, _ = tip_strategy.best_tip(
+            quotes, self.SCHEME, tendency_points=[1, 2, 4], draw_difference_bonus=False,
+            underdog_margin=5.0)
+        self.assertGreater(strict[0], strict[1])
+        same, _ = tip_strategy.best_tip(
+            quotes, self.SCHEME, tendency_points=[1, 2, 4], draw_difference_bonus=False,
+            underdog_margin=0.1)
+        self.assertEqual(same, pure)  # advantage is ~0.9 points, well above 0.1
+
     def test_own_tip_lowers_points_in_small_league(self):
         adjusted = tip_strategy.adjust_for_own_tip([1, 2, 4], outcome=2, group_size=10)
         self.assertLess(adjusted[2], 4)

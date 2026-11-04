@@ -42,6 +42,10 @@ class Config:
     GROUP_SIZE: Optional[int] = (
         int(os.getenv("KICKTIPP_GROUP_SIZE")) if os.getenv("KICKTIPP_GROUP_SIZE") else None)
 
+    # Only tip against the bookmaker favourite when the expected points beat
+    # the best favourite tip by this margin (0 = pure expected value).
+    UNDERDOG_MARGIN: float = float(os.getenv("KICKTIPP_UNDERDOG_MARGIN", "0.3"))
+
     # Chrome driver path
     CHROMEDRIVER_PATH: Optional[str] = os.getenv("CHROMEDRIVER_PATH")
 
