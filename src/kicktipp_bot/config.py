@@ -23,6 +23,12 @@ class Config:
         os.getenv("KICKTIPP_RUN_EVERY_X_MINUTES", "60"))
     OVERWRITE_TIPS: Optional[bool] = os.getenv("OVERWRITE_TIPS", "false").lower() == "true"
 
+    # Tip strategy: "ev" (expected Kicktipp points, default) or "legacy"
+    TIP_STRATEGY: str = os.getenv("KICKTIPP_TIP_STRATEGY", "ev").lower()
+    # Points of the league for Tendenz, Tordifferenz, Ergebnis (default Kicktipp: 2,3,4)
+    POINTS_SCHEME: tuple = tuple(
+        int(x) for x in os.getenv("KICKTIPP_POINTS_SCHEME", "2,3,4").split(","))
+
     # Chrome driver path
     CHROMEDRIVER_PATH: Optional[str] = os.getenv("CHROMEDRIVER_PATH")
 

@@ -254,9 +254,14 @@ class GameTipper:
             section = GameDataExtractor.extract_game_section(data_row)
             allow_draw = not GameDataExtractor.section_disallows_draw(
                 section)
-            tip = game.calculate_tip(allow_draw=allow_draw)
+            tip = game.calculate_tip(
+                allow_draw=allow_draw,
+                strategy=Config.TIP_STRATEGY,
+                points_scheme=Config.POINTS_SCHEME)
 
-            logger.info(f"Calculated tip: {tip[0]} - {tip[1]}")
+            logger.info(
+                f"Calculated tip ({Config.TIP_STRATEGY}): {tip[0]} - {tip[1]} "
+                f"(expected points: {game.expected_points(tip, Config.POINTS_SCHEME):.2f})")
 
             # Enter tip and send notifications
             if self._enter_tip(home_tip_field, away_tip_field, tip):
