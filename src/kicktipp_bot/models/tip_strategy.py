@@ -201,8 +201,15 @@ def best_tip(
     tendency_points: Optional[Sequence[float]] = None,
     draw_difference_bonus: bool = True,
     group_size: Optional[int] = None,
+    underdog_margin: float = 0.0,
 ) -> Tuple[Score, float]:
     """Return the tip with the highest expected Kicktipp points and that value.
+
+    `underdog_margin`: only tip against the bookmaker favourite when the
+    expected points exceed the best favourite tip by this much. 0 = pure
+    expected-value maximisation; a small margin (0.2 to 0.5) trades a little
+    expectation for a lot less variance in Quotenpunkte leagues, where the
+    4-point underdog tips win rarely but big.
 
     `quotes` are always the bookmaker quotes (they define the probabilities).
     `tendency_points` are the league's current points per outcome when the
@@ -215,7 +222,17 @@ def best_tip(
         matrix, scheme, allow_draw, tendency_points=tendency_points,
         draw_difference_bonus=draw_difference_bonus, group_size=group_size)
     # Deterministic tie-break: prefer lower total goals, then home goals.
-    tip = max(table, key=lambda t: (table[t], -(t[0] + t[1]), -t[0]))
+    def rank(t: Score):
+        return (table[t], -(t[0] + t[1]), -t[0])
+
+    tip = max(table, key=rank)
+    if underdog_margin > 0:
+        favourite = 0 if quotes[0] <= quotes[2] else 2
+        favourite_tips = [t for t in table if tendency_of(t) == favourite]
+        if favourite_tips and tendency_of(tip) != favourite:
+            best_favourite = max(favourite_tips, key=rank)
+            if table[tip] <= table[best_favourite] + underdog_margin:
+                tip = best_favourite
     return tip, table[tip]
 
 

@@ -57,6 +57,7 @@ or deploy with Kubernetes.
 | `KICKTIPP_POINTS_SCHEME`       | Points of your league for Tendenz, Tordifferenz, Ergebnis            | `2,3,4`                                                           | No       |
 | `KICKTIPP_QUOTENPUNKTE`        | `auto` reads the league's current points per tendency ("1 - 2 - 4") from the table if present, `true` requires them, `false` ignores them | `auto` | No       |
 | `KICKTIPP_DRAW_DIFFERENCE_BONUS` | `false` if your rule table shows "-" for Tordifferenz at Unentschieden | `true`                                                          | No       |
+| `KICKTIPP_UNDERDOG_MARGIN`     | Tip against the favourite only when the expected points beat the best favourite tip by this margin; `0` = pure expected value | `0.3`                   | No       |
 | `KICKTIPP_GROUP_SIZE`          | Number of active tippers; lets the bot account for its own tip lowering the Quotenpunkte | (unset)                                      | No       |
 | `CHROMEDRIVER_PATH`            | The path to the chromedriver binary                                  | `/usr/bin/chromedriver`                                           | No       |
 | `ZAPIER_URL`                   | The URL of your Zapier Webhook                                       | `https://hooks.zapier.com/hooks/catch/123456/abcdef/`             | No       |
